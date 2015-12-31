@@ -4,7 +4,17 @@ import csv
 import time
 import datetime
 import sys
-from dbfread import DBF          # pip install dbfread
+from dbfread import DBF, FieldParser, InvalidValue          # pip install dbfread
+
+class MyFieldParser(FieldParser):
+    def parse(self, field, data):
+        try:
+            return FieldParser.parse(self, field, data)
+        except ValueError:
+            return InvalidValue(data)
+
+            
+debugmode=0         # Set to 1 to catch all the errors.            
 
 for infile in os.listdir('.'):
     if fnmatch.fnmatch(infile, '*.dbf'):
@@ -13,10 +23,14 @@ for infile in os.listdir('.'):
         counter = 0
         starttime=time.clock()
         with open(outfile, 'wb') as csvfile:
-            table = DBF(infile)
+            table = DBF(infile, parserclass=MyFieldParser)
             writer = csv.writer(csvfile)
             writer.writerow(table.field_names)
-            for record in table:
+            for i, record in enumerate(table):
+                for name, value in record.items():
+                    if isinstance(value, InvalidValue):
+                        if debugmode == 1:
+                            print('records[{}][{!r}] == {!r}'.format(i, name, value))
                 writer.writerow(list(record.values()))
                 counter +=1
                 if counter%100000==0:
